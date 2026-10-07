@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lstat, realpath } from 'node:fs/promises';
-import { scan } from '../src/scanner.js';
+import { scan, canonicalPath } from '../src/scanner.js';
 import { writeReports } from '../src/reports.js';
 
 const HELP = `Document Consolidator 0.1.0 — local read-only inventory
@@ -33,24 +32,11 @@ export function parseArgs(args) {
   return options;
 }
 
-// Resolve existing ancestors, so symlink aliases cannot place output over a source.
-async function canonicalOutput(output) {
-  let cursor = path.resolve(output), suffix = [];
-  while (true) {
-    try { await lstat(cursor); return path.join(await realpath(cursor), ...suffix.reverse()); }
-    catch (error) {
-      if (error.code !== 'ENOENT') throw error;
-      const parent = path.dirname(cursor);
-      if (parent === cursor) throw error;
-      suffix.push(path.basename(cursor)); cursor = parent;
-    }
-  }
-}
 export async function main(args) {
   try {
     const options = parseArgs(args);
     if (options.help) { console.log(HELP); return 0; }
-    const output = await canonicalOutput(options.out);
+    const output = await canonicalPath(options.out);
     const report = await scan(options.roots, { ...options, excludePaths: [output] });
     await writeReports(report, output);
     console.log('Scanned ' + report.summary.files + ' files; ' + report.summary.duplicateGroups + ' duplicate groups; ' + report.summary.reviewGroups + ' version review groups.');

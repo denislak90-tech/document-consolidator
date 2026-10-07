@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { lstat, realpath, readdir, stat } from 'node:fs/promises';
+import { lstat, realpath, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 const DEFAULT_EXCLUDES = new Set(['.git', 'node_modules', 'reports', 'coverage']);
@@ -28,6 +28,19 @@ async function hashFile(filename) {
   return hash.digest('hex');
 }
 
+export async function canonicalPath(input) {
+  let cursor = path.resolve(input), suffix = [];
+  while (true) {
+    try { await lstat(cursor); return path.join(await realpath(cursor), ...suffix.reverse()); }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      const parent = path.dirname(cursor);
+      if (parent === cursor) throw error;
+      suffix.push(path.basename(cursor)); cursor = parent;
+    }
+  }
+}
+
 /** Read-only. Sources and reports stay local; root labels avoid absolute paths. */
 export async function scan(roots, { includeHidden = false, allFiles = false, excludePaths = [] } = {}) {
   if (!Array.isArray(roots) || roots.length === 0) throw new Error('Provide at least one source folder.');
@@ -38,7 +51,7 @@ export async function scan(roots, { includeHidden = false, allFiles = false, exc
     if (info.isSymbolicLink() || !info.isDirectory()) throw new Error('Each source must be a real directory, not a symlink.');
     resolvedRoots.push(await realpath(candidate));
   }
-  const excluded = excludePaths.map(p => path.resolve(p));
+  const excluded = await Promise.all(excludePaths.map(canonicalPath));
   // A nested root is already covered. Preserve first user-supplied ownership for reporting.
   const uniqueRoots = [...new Set(resolvedRoots)].filter(root => !resolvedRoots.some(other => other !== root && within(root, other)));
   for (const root of uniqueRoots) {

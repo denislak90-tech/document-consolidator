@@ -124,3 +124,13 @@ test('argument errors are rejected', () => {
   assert.throws(()=>parseArgs(['--out'])); assert.throws(()=>parseArgs(['--unknown']));
   assert.equal(parseArgs(['--help']).help,true);
 });
+
+test('output exclusion resolves directory aliases', async t => {
+  const root = await fixture(t); const output=path.join(root,'actual-output');
+  await put(root,'a.txt','data'); await put(output,'old.json','private report');
+  const alias=path.join(root,'output-alias');
+  try {await symlink(output,alias,process.platform==='win32'?'junction':'dir');}
+  catch(error){if(['EPERM','EACCES','ENOTSUP'].includes(error.code)){t.skip('Symlinks unavailable');return;}throw error;}
+  const r=await scan([root],{excludePaths:[alias]});
+  assert.equal(r.files.length,1);
+});
