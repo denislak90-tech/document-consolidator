@@ -1,0 +1,18 @@
+{
+  "name": "document-consolidator",
+  "version": "0.1.0",
+  "description": "Local-first document inventory, exact duplicate detection and version review.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "document-consolidator": "./bin/document-consolidator.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "demo": "node bin/document-consolidator.js examples/synthetic --out reports/demo"
+  }
+}
